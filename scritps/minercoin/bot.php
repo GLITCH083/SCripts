@@ -4,7 +4,7 @@ error_reporting(0);
 function selecting(){
     global $typeapi,$apihost,$apikey,$l;
     clear();
-    displayBanner('Captcha');
+    showBannerBox('Captcha');
     echo WHITE . "[1] Multibot" . WHITE . NEWLINE; 
     echo WHITE . "[2] Xevil" . WHITE . NEWLINE;
     $typeapi = readline("Select Option: ");  
@@ -100,7 +100,7 @@ function faucet() {
 
 selecting();
 clear();
-displayBanner("minercoin.site");
+showBannerBox("minercoin.site");
 dashboard();
 faucet();
 
