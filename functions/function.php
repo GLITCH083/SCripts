@@ -257,7 +257,7 @@ $arrow = str_repeat('=', $arrowLength - 1) . '>';
 
         // Print the message, time, colored arrow, and the percentage on the opposite side
         printf(
-            "\r" . $message . ' ' . WHITE . "%02d:%02d:%02d " . $arrow . " " . str_repeat(" ", 40) . "%.2f%%",
+            "\r" . $message . ' ' . WHITE . "%02d:%02d:%02d " . $arrow . " " . str_repeat(" ", 20) . "%.2f%%          \r",
             $hours, $minutes, $seconds, $percentage
         );
 
@@ -267,7 +267,7 @@ $arrow = str_repeat('=', $arrowLength - 1) . '>';
 
     // Ensure 100% is printed when the countdown hits 00:00
     printf(
-        "\r" . $message . ' ' . WHITE . "00:00:00 " . str_repeat('>', 5) . " " . str_repeat(" ", 40) . "100.00%%\r"
+        "\r" . $message . ' ' . WHITE . "00:00:00 " . str_repeat('>', 5) . " " . str_repeat(" ", 20) . "100.00%%                        \r"
     );
 }
 
