@@ -5,7 +5,7 @@ include_once __DIR__ . "/functions/sl.php";
 
 while (true) {
     clear();
-    showBannerBox();
+    showBannerBoxp();
     echo WHITE . "[" . CYAN . '1' . WHITE . "]" . CYAN . " Show Script List" . PHP_EOL;
     echo WHITE . "[" . CYAN . '2' . WHITE . "]" . CYAN . " Update Scripts" . PHP_EOL;
     echo WHITE . "[" . CYAN . '3' . WHITE . "]" . CYAN . " Exit" . WHITE . PHP_EOL;
@@ -44,7 +44,7 @@ function showScriptList() {
 
     while (true) {
         clear();
-        showBannerBox();
+        showBannerBoxp();
         foreach ($folders as $index => $folder) {
             echo WHITE . "[" . CYAN . "$index" . WHITE . "] " . CYAN . basename($folder) . PHP_EOL;
         }
@@ -111,7 +111,7 @@ function updateRepository() {
 }
 
 
-function showBannerBox() {
+function showBannerBoxp() {
     $cyan = "\e[96m";
     $white = "\e[97m";
     $reset = "\e[0m";
@@ -140,9 +140,3 @@ function showBannerBox() {
 }
 
 
-function styledNumberBox($number) {
-    $cyan = "\e[96m";
-    $bold = "\e[1m";
-    $reset = "\e[0m";
-    echo $cyan . $bold . "[" . $number . "]" . $reset;
-}
