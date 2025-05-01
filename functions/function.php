@@ -38,6 +38,46 @@ function saveData($folder, $filename) {
     }
 }
 
+
+function cf_bypass($host){
+    
+        $host0 = parse_url($host, PHP_URL_HOST);
+    $configDir = __DIR__ . "/../configs/{$host0}-config";
+    if (!is_dir($configDir)) {
+        mkdir($configDir, 0777, true);
+    }
+
+    while (true) {
+        $bots = exec("python cf.py $host");
+        $bot = json_decode($bots, true);
+
+        if (empty($bot['cf_clearance'])) {
+            continue;
+        }
+        $host = parse_url($url, PHP_URL_HOST);
+        // Save user-agent
+        file_put_contents("$configDir/user_Agent", $bot['user-agent']);
+
+        // Load old cookie
+        $cookieFile = saveData($host, 'cookie');
+
+        $newCfClearance = "cf_clearance=" . $bot['cf_clearance'] . ";";
+        $cf = explode('cf_clearance=', $cookieFile)[1] ?? null;
+
+        if ($cf) {
+            $cf0 = explode(';', $cf)[1];
+            $back = explode('cf_clearance=', $cookieFile)[0];
+            $makenewcookie = $back . $newCfClearance . $cf0;
+        } else {
+            $makenewcookie = $newCfClearance . $cookieFile;
+        }
+
+        // Save updated cookie
+        file_put_contents("$configDir/cookie", $makenewcookie);
+        return;
+    }
+}
+
 function banner($sc){
     global $l;
 fast($l);
@@ -148,6 +188,9 @@ function Run($url, $head = 0, $post = 0, $data = "data") {
     curl_setopt($ch, CURLOPT_FOLLOWLOCATION, false);
     curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
     curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 30);
+    curl_setopt($ch, CURLOPT_SSLVERSION, CURL_SSLVERSION_TLSv1_3);
+    curl_setopt($ch, CURLOPT_SSL_CIPHER_LIST, 'TLS_AES_128_GCM_SHA256:ECDHE-RSA-AES128-GCM-SHA256');
+
 
     if ($post) {
         curl_setopt($ch, CURLOPT_POST, true);
@@ -185,6 +228,9 @@ function Run1($url, $head = 0, $post = 0) {
     curl_setopt($ch, CURLOPT_FOLLOWLOCATION, false);
     curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
     curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 30);
+    curl_setopt($ch, CURLOPT_SSLVERSION, CURL_SSLVERSION_TLSv1_3);
+    curl_setopt($ch, CURLOPT_SSL_CIPHER_LIST, 'TLS_AES_128_GCM_SHA256:ECDHE-RSA-AES128-GCM-SHA256');
+
 
     if ($post) {
         curl_setopt($ch, CURLOPT_POST, true);
@@ -257,7 +303,7 @@ $arrow = str_repeat('=', $arrowLength - 1) . '>';
 
         // Print the message, time, colored arrow, and the percentage on the opposite side
         printf(
-            "\r" . $message . ' ' . WHITE . "%02d:%02d:%02d " . $arrow . " " . str_repeat(" ", 20) . "%.2f%%          \r",
+            "\r" . $message . ' ' . WHITE . "%02d:%02d:%02d " . $arrow . " " . str_repeat(" ", 20) . "%.2f%%                         \r",
             $hours, $minutes, $seconds, $percentage
         );
 
@@ -267,7 +313,7 @@ $arrow = str_repeat('=', $arrowLength - 1) . '>';
 
     // Ensure 100% is printed when the countdown hits 00:00
     printf(
-        "\r" . $message . ' ' . WHITE . "00:00:00 " . str_repeat('>', 5) . " " . str_repeat(" ", 20) . "100.00%%                        \r"
+        "\r" . $message . ' ' . WHITE . "00:00:00 " . str_repeat('>', 5) . " " . str_repeat(" ", 20) . "100%%                           \r"
     );
 }
 
@@ -387,7 +433,7 @@ function unlinkData($host, $key = null) {
         return rmdir($folder);
     } else {
         // Delete only specific key file
-        $file = "$folder/$key.txt";
+        $file = "$folder/$key";
         if (file_exists($file)) {
             return unlink($file);
         }

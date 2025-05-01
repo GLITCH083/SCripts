@@ -251,14 +251,14 @@ Content-Disposition: form-data; name="payload"
     }
 
 
-    function captchasolver($captcha,$cookie)
+    function captchasolver($captcha,$cookie,$ua)
     { global $userAgent;
      $header0 = [
           "Host: earnbitmoon.club",
           "x-requested-with:XMLHttpRequest",
           "content-type: multipart/form-data; boundary=------WebKitFormBoundaryPvNIrj9zw1N1kh5O",
           "origin: https://earnbitmoon.club",
-          "User-Agent: ". SaveData('User_Agent'),
+          "User-Agent: ". $ua,
           "accept: */*", //*/
           "referer: https://earnbitmoon.club/",
           "cookie: $cookie",
@@ -269,7 +269,7 @@ Content-Disposition: form-data; name="payload"
           "content-type: multipart/form-data; boundary=----WebKitFormBoundaryPXIjpA5uCgwszbBB",
           "x-requested-with:XMLHttpRequest",
           "origin: https://earnbitmoon.club",
-          "User-Agent: ".SaveData('User_Agent'),
+          "User-Agent: ".$ua,
           "accept: */*", //*/
           "referer: https://earnbitmoon.club/",
           "cookie: $cookie",
@@ -277,7 +277,7 @@ Content-Disposition: form-data; name="payload"
 
      $header2 = [
           "Host: earnbitmoon.club",
-          "user-agent: ".SaveData('User_Agent'),
+          "user-agent: ".$ua,
           "accept: image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
           "referer: https://earnbitmoon.club/",
           "cookie: $cookie",
