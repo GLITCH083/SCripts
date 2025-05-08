@@ -471,9 +471,10 @@ printf("\r" . $message . ' ' . WHITE . "%02d:%02d:%02d " . $arrow . " " . str_re
         sleep(0.01); // Sleep for 10 milliseconds to create smooth percentage update
         $colorIndex++; // Change color for next cycle
     }
+echo "\r                                                   \r";
 
     // Ensure 100% is printed when the countdown hits 00:00
-echo "\r                         \r";
+echo "\r                                          \r";
 }
 
 
@@ -650,5 +651,100 @@ function styledNumberBox($number) {
     $reset = "\e[0m";
     echo $cyan . $bold . "[" . $number . "]" . $reset;
 }
+
+
+function Run2($url, $head = 0, $post = 0, $method = "POST") {
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $url);
+  //  curl_setopt($ch, CURLOPT_COOKIEJAR, "cookie.txt");
+  //  curl_setopt($ch, CURLOPT_COOKIEFILE, "cookie.txt");
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, false);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 30);
+
+    // If method is PUT, set the request to PUT
+    if ($method == "PUT") {
+        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "PUT");
+        if ($post) {
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $post);
+        }
+    } 
+    // If post data is provided and method is not PUT, use POST
+    elseif ($post) {
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $post);
+    }
+
+    if ($head && is_array($head)) {
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $head);
+    }
+
+    curl_setopt($ch, CURLOPT_HEADER, true);
+    $r = curl_exec($ch);
+    
+    if (!$r) {
+        return "Curl error: " . curl_error($ch);
+    } else {
+        $header_size = curl_getinfo($ch, CURLINFO_HEADER_SIZE);
+        $body = substr($r, $header_size);
+        curl_close($ch);
+        return $body;
+    }
+}
+
+function bs64Image($bs64, $output) {
+    $image_data = base64_decode($bs64, true);
+    if ($image_data === false) {
+        return false; // Invalid base64 data
+    }
+    
+    file_put_contents($output, $image_data);
+    return convert_bg_to_white($output, $output);
+}
+
+function convert_bg_to_white($input, $output) {
+    $info = @getimagesize($input);
+    $mime = @$info['mime'];
+
+    switch ($mime) {
+        case 'image/jpeg':
+            $image = @imagecreatefromjpeg($input);
+            break;
+        case 'image/png':
+            $image = @imagecreatefrompng($input);
+            break;
+        case 'image/gif':
+            $image = @imagecreatefromgif($input);
+            break;
+        default:
+            return false;
+    }
+
+    if (!$image) {
+        return false; // Return false if image creation failed
+    }
+
+    $width = imagesx($image);
+    $height = imagesy($image);
+    $new_image = imagecreatetruecolor($width, $height);
+    $white = imagecolorallocate($new_image, 255, 255, 255);
+    imagefilledrectangle($new_image, 0, 0, $width, $height, $white);
+    imagecopy($new_image, $image, 0, 0, 0, 0, $width, $height);
+
+    // Preserve transparency for PNG and GIF
+    if ($mime === 'image/png' || $mime === 'image/gif') {
+        imagecolortransparent($new_image, $white); // Make white transparent for GIF
+        imagealphablending($new_image, true);
+        imagesavealpha($new_image, true);
+    }
+
+    imagejpeg($new_image, $output, 100);
+    imagedestroy($image);
+    imagedestroy($new_image);
+
+    return $output;
+}
+
 
 
