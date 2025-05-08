@@ -2,6 +2,8 @@
 include_once __DIR__ . "/functions/function.php";
 include_once __DIR__ . "/functions/captcha.php";
 include_once __DIR__ . "/functions/sl.php";
+include_once __DIR__ . "/functions/words.php";
+
 
 while (true) {
     clear();
