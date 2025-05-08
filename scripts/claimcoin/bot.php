@@ -65,7 +65,29 @@ function dashboard(){
 
 function faucet(){
     global $l;
+        $dictionaries = [
+        "numberword" => numberword(),
+        "wordnumber" => wordnumber(),
+        "numberroman" => numberroman(),
+        "romannumber" => romannumber(),
+        "mathans" => mathans(),
+        "ansmath" => ansmath(),
+        "oox" => oox(),
+        "xxx" => xxx(),
+        "xox" => xox(),
+        "oxo" => oxo(),
+        "zoo" => zoo(),
+        "ooz" => ooz(),
+        "animals" => animals()
+    ];
     while(true){
+        $host = "claimcoin.in";
+        @unlink("main_{$host}.png");
+        @unlink("image_0_{$host}.png");
+        @unlink("image_1_{$host}.png");
+        @unlink("image_2_{$host}.png");
+        unset($t, $options, $match, $ids, $images);
+
        $r = Run("https://claimcoin.in/faucet",header0());
         if(preg_match('/Daily limit reached, see you tomorrow/', $r)){
        exit;
@@ -76,39 +98,119 @@ function faucet(){
         countdown($timer,"");
         continue;
     }
+        if(!bs64Image(explode('" alt=""', explode('<img src="data:image/png;base64,', $r)[1])[0], "main_{$host}.png")){
+            countdown(10,"Wait for");
+            continue;
+        }
+        $start = microtime(true);
+        $main = @preg_split('/[;:,. ]+/', shell_exec("tesseract main_{$host}.png stdout --psm 7 2>&1"));
+        $match = mainWordMatch($main, $dictionaries);
+        if (count($match) < 3) {
+            continue;
+        }
+        
+
+        $images = stripslashes(explode('"]',explode('var ablinks= ["',$r)[1])[0]);
+        preg_match_all('/<a href="#" rel="(.*?)">/', $images, $ids);
+        preg_match_all('#<img src="data:image/png;base64,(.*?)" alt=""#', $images, $image);
+        foreach($image[1] as $key => $value){
+            if(!bs64Image($value, "image_{$key}_{$host}.png")){
+                countdown(10,"Wait for");
+                continue 2;
+            }
+            $options[$ids[1][$key]] = @preg_replace('/\s+/', '', shell_exec("tesseract image_{$key}_{$host}.png stdout --psm 7 2>&1"));
+        }
+        $t = compare($match, $options, $dictionaries);
+        $end = microtime(true);
+        $ab_solve = $end - $start;
+        if (empty($t) || count($t) < 3) {
+            continue;
+        }
+        $atb = "+".implode("+", $t);
     $csrf = explode('"', explode('<input type="hidden" name="csrf_token_name" id="token" value="', $r)[1])[0];
     $cap = IconCaptchaBypass($r,$host,"https://claimcoin.in/icaptcha/req","WebKitFormBoundaryWcEFUS6RzDVYqgFt",SaveData(host,'cookie'),saveData(host,'user_Agent'));
-    $req = "csrf_token_name=$csrf&$cap";
+        $req = "antibotlinks=$atb&csrf_token_name=$csrf&$cap";
     $r = Run("https://claimcoin.in/faucet/verify",headers('claimcoin.in'),$req);
         $r = Run("https://claimcoin.in/faucet",header0());
         $msg = explode("', 'success')</script>", explode("Swal.fire('Good job!', '", $r)[1])[0];
     if($msg){
             $r = Run("https://claimcoin.in/dashboard",header0());
     $bal = explode('</h2>', explode('<h2 class="f-w-600">', $r)[1])[0];
-        rewardbox("Faucet",["Reward " => "$msg","Balance " => $bal]);
+        rewardbox("Faucet",["Reward " => "$msg","Balance " => $bal,"AB-Values" => $atb]);
        }
     }
 }
 
 function madfaucet(){
     global $l;
+            $dictionaries = [
+        "numberword" => numberword(),
+        "wordnumber" => wordnumber(),
+        "numberroman" => numberroman(),
+        "romannumber" => romannumber(),
+        "mathans" => mathans(),
+        "ansmath" => ansmath(),
+        "oox" => oox(),
+        "xxx" => xxx(),
+        "xox" => xox(),
+        "oxo" => oxo(),
+        "zoo" => zoo(),
+        "ooz" => ooz(),
+        "animals" => animals()
+    ];
+
     while(true){
+        $host = "claimcoin.in";
+        @unlink("main_{$host}.png");
+        @unlink("image_0_{$host}.png");
+        @unlink("image_1_{$host}.png");
+        @unlink("image_2_{$host}.png");
+        unset($t, $options, $match, $ids, $images);
     $r = Run("https://claimcoin.in/madfaucet",header0());
         if(preg_match('/Daily limit reached, see you tomorrow/', $r)){
        faucet();
 }
     $timer = explode(" - 1;", explode("var wait = ", $r)[1])[0];
     if($timer){faucet();countdown($timer,"");continue;}
+        if(!bs64Image(explode('" alt=""', explode('<img src="data:image/png;base64,', $r)[1])[0], "main_{$host}.png")){
+            countdown(10,"Wait for");
+            continue;
+        }
+        $start = microtime(true);
+        $main = @preg_split('/[;:,. ]+/', shell_exec("tesseract main_{$host}.png stdout --psm 7 2>&1"));
+        $match = mainWordMatch($main, $dictionaries);
+        if (count($match) < 3) {
+            continue;
+        }
+        
+
+        $images = stripslashes(explode('"]',explode('var ablinks= ["',$r)[1])[0]);
+        preg_match_all('/<a href="#" rel="(.*?)">/', $images, $ids);
+        preg_match_all('#<img src="data:image/png;base64,(.*?)" alt=""#', $images, $image);
+        foreach($image[1] as $key => $value){
+            if(!bs64Image($value, "image_{$key}_{$host}.png")){
+                countdown(10,"Wait for");
+                continue 2;
+            }
+            $options[$ids[1][$key]] = @preg_replace('/\s+/', '', shell_exec("tesseract image_{$key}_{$host}.png stdout --psm 7 2>&1"));
+        }
+        $t = compare($match, $options, $dictionaries);
+        $end = microtime(true);
+        $ab_solve = $end - $start;
+        if (empty($t) || count($t) < 3) {
+            continue;
+        }
+        $atb = "+".implode("+", $t);
     $csrf = explode('"', explode('<input type="hidden" name="csrf_token_name" id="token" value="', $r)[1])[0];
     $cap = IconCaptchaBypass($r,$host,"https://claimcoin.in/icaptcha/req","WebKitFormBoundaryWcEFUS6RzDVYqgFt",SaveData(host,'cookie'),saveData(host,'user_Agent'));
-    $req = "csrf_token_name=$csrf&$cap";
+        $req = "antibotlinks=$atb&csrf_token_name=$csrf&$cap";
     $r = Run("https://claimcoin.in/madfaucet/verify",headers('claimcoin.in'),$req);
     $r = Run("https://claimcoin.in/madfaucet",header0());
     $msg = explode("', 'success')</script>", explode("Swal.fire('Good job!', '", $r)[1])[0];
     if($msg){
         $r = Run("https://claimcoin.in/dashboard",header0());
     $bal = explode('</h2>', explode('<h2 class="f-w-600">', $r)[1])[0];
-        rewardbox("Mad-Faucet",["Reward " => "$msg","Balance " => $bal]);
+        rewardbox("Mad-Faucet",["Reward " => "$msg","Balance " => $bal,"AB-Values" => $atb]);
 
             }
     }    
