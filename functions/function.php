@@ -1,5 +1,7 @@
-
 <?php
+// ============================================
+// COLOR DEFINITIONS
+// ============================================
 define("RED", "\033[1;31;40m");
 define("GREEN", "\033[1;32;40m");
 define("YELLOW", "\033[1;33;40m");
@@ -7,23 +9,259 @@ define("BLUE", "\033[1;34;40m");
 define("PURPLE", "\033[1;35;40m");
 define("CYAN", "\033[1;36;40m");
 define("GREY", "\033[1;30;40m");
+define("WHITE", "\033[1;37m");
+define("BOLD_YELLOW", "\033[1;33m");
+define('MAGENTA', "\033[35m");
 define("MONO", "\033[2;37;40m");
 define("EMONO", "\033[0;37;40m");
 define("ITALIC", "\033[3;37;40m");
+define("UNDERLINE_CYAN", "\033[4;36m");
+define("BLINKING_GREEN", "\033[5;32m");
+define("GLOWING_PURPLE", "\033[1;35;5m");
+define("GLOWING_WHITE", "\033[1;37;5m");
+define("BG_RED", "\033[41m");
+define("BG_GREEN", "\033[42m");
+define("BG_BLUE", "\033[44m");
 define("NEWLINE", "\n");
-define("WHITE", "\033[1;37m");
-define("UNDERLINE_CYAN", "\033[4;36m");  
-define("BLINKING_GREEN", "\033[5;32m");  
-define("GLOWING_PURPLE", "\033[1;35;5m"); 
-define("GLOWING_WHITE", "\033[1;37;5m"); 
-define("BOLD_YELLOW", "\033[1;33m");
 define("RESET", WHITE);
-define("BG_RED", "\033[41m");  // Red background
-define("BG_GREEN", "\033[42m");  // Green background
-define("BG_BLUE", "\033[44m");  // Blue background
-define("BG_END", "\033[0m");   // Reset background color
+define("BG_END", "\033[0m");
+if (!defined("BOLD")) define("BOLD", "\033[1m");
+if (!defined("DIM")) define("DIM", "\033[2m");
+
+// ============================================
+// PROFESSIONAL LOGGING + CTRL+C SUPPORT
+// ============================================
+function enableCtrlC() {
+    if (function_exists('pcntl_async_signals') && function_exists('pcntl_signal')) {
+        pcntl_async_signals(true);
+        pcntl_signal(SIGINT, function () {
+            echo "\n" . YELLOW . "⏹  Stopped by user (Ctrl+C)\n" . RESET;
+            exit(0);
+        });
+        pcntl_signal(SIGTERM, function () {
+            echo "\n" . YELLOW . "⏹  Terminated\n" . RESET;
+            exit(0);
+        });
+    }
+}
 
 
+// ========== SHARED CRYSTAL BOX THEME (all scripts — same as btcadspace) ==========
+if (!function_exists('themeOpen')) {
+function theme_box_w() { return 61; }
+function theme_plain($s) { return preg_replace('/\033\[[0-9;]*m/', '', (string)$s); }
+function themeOpen($title) {
+    $GLOBALS['theme_box_open'] = true;
+    $w = theme_box_w();
+    echo "\n";
+    echo CYAN . "┌" . str_repeat("─", $w) . "┐\n" . RESET;
+    $plain = theme_plain($title);
+    $pad = max(1, $w - 2 - strlen($plain));
+    echo CYAN . "│" . RESET . WHITE . "  " . $title . str_repeat(" ", max(0, $pad - 2)) . CYAN . "│\n" . RESET;
+    echo CYAN . "├" . str_repeat("─", $w) . "┤\n" . RESET;
+}
+function themeRow($label, $value) {
+    $w = theme_box_w();
+    $plainV = theme_plain($value);
+    if (strlen($plainV) > 42) {
+        $plainV = substr($plainV, 0, 39) . "...";
+        $value = $plainV;
+    }
+    $padV = max(1, $w - 16 - strlen($plainV));
+    echo CYAN . "│" . RESET . WHITE . "  " . str_pad((string)$label, 12) . ": " . $value . str_repeat(" ", $padV) . CYAN . "│\n" . RESET;
+}
+
+/** Print a status line inside open box, or normal line if no box open */
+function themeLiveMsg($msg, $color = null) {
+    if (!empty($GLOBALS['theme_box_open']) && function_exists('themeRow')) {
+        themeRow("Status", ($color ? $color : YELLOW) . theme_plain($msg) . RESET);
+        return;
+    }
+    if ($color && defined('RESET')) {
+        echo $color . $msg . RESET . "\n";
+    } else {
+        echo $msg . "\n";
+    }
+}
+
+function themeClose() {
+    echo CYAN . "└" . str_repeat("─", theme_box_w()) . "┘\n" . RESET;
+    $GLOBALS['theme_box_open'] = false;
+}
+function themeStatus($title, $rows) {
+    themeOpen($title);
+    foreach ($rows as $label => $value) themeRow($label, $value);
+    themeClose();
+}
+/** One-shot status box (account header, login, wait, error, etc.) */
+function themeBox($title, $rows = []) {
+    themeStatus($title, $rows);
+}
+/** Account header — used by every script */
+function themeAccount($email, $proxy = null, $extra = []) {
+    $rows = ["Account" => GREEN . $email . RESET];
+    if ($proxy) $rows["Proxy"] = CYAN . $proxy . RESET;
+    foreach ($extra as $k => $v) $rows[$k] = $v;
+    themeStatus("👤  ACCOUNT", $rows);
+}
+/**
+ * Login — ONE box with everything inside
+ * $extra can hold: Account, Mode, Captcha, Token Len, Token, etc.
+ */
+function themeLogin($ok, $detail = "", $extra = []) {
+    $rows = [];
+    foreach ($extra as $k => $v) {
+        $rows[$k] = $v;
+    }
+    if ($detail !== "" && $detail !== null) {
+        if (!isset($rows["Detail"]) && !isset($rows["Account"])) {
+            $rows["Account"] = WHITE . $detail . RESET;
+        } elseif (!isset($rows["Detail"])) {
+            $rows["Detail"] = WHITE . $detail . RESET;
+        }
+    }
+    if ($ok) {
+        $rows["Status"] = GREEN . "Successful" . RESET;
+        themeStatus("✅  LOGIN", $rows);
+    } else {
+        $rows["Status"] = RED . "Failed" . RESET;
+        themeStatus("❌  LOGIN FAILED", $rows);
+    }
+}
+
+/**
+ * Captcha-only box (optional). Prefer putting captcha rows into logClaim instead.
+ */
+function themeCaptcha($type, $tokenLen = 0, $tokenPreview = "", $extra = []) {
+    $rows = ["Type" => YELLOW . $type . RESET];
+    if ($tokenLen > 0) {
+        $rows["Token Len"] = GREEN . (string)$tokenLen . RESET;
+        if ($tokenPreview !== "") $rows["Token"] = GREY . $tokenPreview . RESET;
+    }
+    foreach ($extra as $k => $v) $rows[$k] = $v;
+    themeStatus("🔐  CAPTCHA", $rows);
+}
+}
+
+/**
+ * LIVE claim box — open at start, add rows as work happens, close at end.
+ * Labels use emojis as requested.
+ */
+function claimBoxOpen($title = "✅  CLAIM") {
+    themeOpen($title);
+}
+
+function claimBoxRow($emojiLabel, $value) {
+    // $emojiLabel e.g. "🧩 Captcha", "🔑 Token Len", "🎁 Reward"
+    $w = theme_box_w();
+    $label = (string)$emojiLabel;
+    $plainL = theme_plain($label);
+    $plainV = theme_plain($value);
+    if (strlen($plainV) > 40) {
+        $plainV = substr($plainV, 0, 37) . "...";
+        $value = $plainV;
+    }
+    // label width ~14 visible chars for alignment
+    $labPad = max(1, 14 - strlen($plainL));
+    $line = $label . str_repeat(" ", $labPad) . ": " . $value;
+    $plainLine = theme_plain($line);
+    $pad = max(1, $w - 2 - strlen($plainLine));
+    echo CYAN . "│" . RESET . WHITE . "  " . $line . str_repeat(" ", max(0, $pad - 2)) . CYAN . "│\n" . RESET;
+}
+
+function claimBoxClose() {
+    themeClose();
+}
+
+/**
+ * Final one-shot claim box (emoji labels). Prefer live open/row/close when possible.
+ *
+ * Order:
+ *   🧩 Captcha
+ *   🔑 Token Len
+ *   🔐 Token
+ *   📊 Claim
+ *   🎁 Reward
+ *   💰 Balance
+ */
+function logClaim($claims, $total, $reward, $balance, $apiBalance = null, $extra = []) {
+    // Fallback from last successful captcha solve
+    if (empty($extra["Type"]) || $extra["Type"] === "Unknown") {
+        if (!empty($GLOBALS["last_captcha_type"])) {
+            $extra["Type"] = $GLOBALS["last_captcha_type"];
+        }
+    }
+    if (empty($extra["Token Len"]) || (int)$extra["Token Len"] === 0) {
+        if (!empty($GLOBALS["last_captcha_len"])) {
+            $extra["Token Len"] = $GLOBALS["last_captcha_len"];
+        }
+    }
+    if (empty($extra["Token"])) {
+        if (!empty($GLOBALS["last_captcha_token"])) {
+            $tok = $GLOBALS["last_captcha_token"];
+            $extra["Token"] = substr($tok, 0, 22) . (strlen($tok) > 22 ? "..." : "");
+            if (empty($extra["Token Len"])) $extra["Token Len"] = strlen($tok);
+        }
+    }
+
+    claimBoxOpen("✅  CLAIM SUCCESSFUL");
+
+    $type = isset($extra["Type"]) ? (string)$extra["Type"] : "";
+    if ($type !== "" && strcasecmp($type, "Unknown") !== 0) {
+        claimBoxRow("🧩 Captcha", YELLOW . $type . RESET);
+    }
+    $tlen = isset($extra["Token Len"]) ? (int)$extra["Token Len"] : 0;
+    if ($tlen > 0) {
+        claimBoxRow("🔑 Token Len", GREEN . $tlen . RESET);
+    }
+    $tok = isset($extra["Token"]) ? (string)$extra["Token"] : "";
+    if ($tok !== "") {
+        claimBoxRow("🔐 Token", GREY . $tok . RESET);
+    }
+    if (!empty($extra["URL"])) {
+        claimBoxRow("🔗 URL", CYAN . $extra["URL"] . RESET);
+    }
+    if (!empty($extra["Antibot"])) {
+        claimBoxRow("🧩 Antibot", WHITE . $extra["Antibot"] . RESET);
+    }
+
+    claimBoxRow("📊 Claim", GREEN . $claims . WHITE . " / " . YELLOW . $total . RESET);
+    claimBoxRow("🎁 Reward", GREEN . "+" . $reward . RESET);
+    claimBoxRow("💰 Balance", YELLOW . $balance . RESET);
+
+    if ($apiBalance !== null && $apiBalance !== "") {
+        claimBoxRow("💎 Api Token", PURPLE . $apiBalance . RESET);
+    }
+
+    claimBoxClose();
+}
+
+function logInfo($title, $data = []) {
+    $rows = [];
+    foreach ($data as $k => $v) {
+        $rows[$k] = GREEN . $v . RESET;
+    }
+    if (empty($rows)) $rows["Info"] = $title;
+    themeStatus($title, $rows);
+}
+
+function logFail($title, $detail = "") {
+    themeStatus("❌  " . $title, [
+        "Status" => RED . "Failed" . RESET,
+        "Detail" => $detail ?: "-",
+    ]);
+}
+
+function logWait($msg, $seconds = 0) {
+    $rows = ["Action" => YELLOW . $msg . RESET];
+    if ($seconds > 0) $rows["Wait"] = WHITE . $seconds . "s" . RESET;
+    themeStatus("⏳  WAITING", $rows);
+}
+
+
+// ============================================
+// SAVE DATA FUNCTION
+// ============================================
 function saveData($folder, $filename) {
     $base = __DIR__ . "/../configs/{$folder}-config";
     if (!is_dir($base)) mkdir($base, 0777, true);
@@ -31,720 +269,744 @@ function saveData($folder, $filename) {
     $path = $base . "/$filename";
     if (file_exists($path)) {
         return file_get_contents($path);
-    } else {
-        $data = readline("Input $filename: ");
-        file_put_contents($path, $data);
-        return $data;
     }
+    
+    $data = readline("Input $filename: ");
+    file_put_contents($path, $data);
+    return $data;
 }
 
-function saveBase64Image($base64String, $filename) {
-$folder = __DIR__ . "/../AB-images";
+// ============================================
+// PARSE PROXY HELPER
+// ============================================
+function parseProxyString($proxy) {
+    if (empty($proxy)) return null;
+    
+    if (!preg_match('#^https?://#i', $proxy)) {
+        $proxy = "http://" . $proxy;
+    }
+    
+    $parts = parse_url($proxy);
+    
+    if (empty($parts['host'])) return null;
+    
+    return [
+        'host' => $parts['host'],
+        'port' => $parts['port'] ?? 80,
+        'user' => $parts['user'] ?? null,
+        'pass' => $parts['pass'] ?? null,
+        'scheme' => $parts['scheme'] ?? 'http'
+    ];
+}
+
+// ============================================
+// GET CF COOKIE & USER AGENT - FIXED
+// ============================================
+function getCfCookieAndUserAgent($host, $proxy = null) {
+    $dir = __DIR__ . "/../configs/{$host}-config";
+    if (!is_dir($dir)) return null;
+
+    $cookieFile = $dir . "/cf_cookie.txt";
+    
+    if (!empty($proxy)) {
+        // Extract host and port from proxy
+        $proxyParts = parseProxyString($proxy);
+        
+        if ($proxyParts && !empty($proxyParts['host'])) {
+            $proxyHost = $proxyParts['host'];
+            $proxyPort = $proxyParts['port'];
+            $proxyCookieFile = $dir . "/{$proxyHost}-{$proxyPort}-cf_cookies.txt";
+            
+            if (file_exists($proxyCookieFile)) {
+                $cookieFile = $proxyCookieFile;
+            }
+        }
+    }
+
+    $cfCookie = file_exists($cookieFile) ? trim(file_get_contents($cookieFile)) : null;
+    
+    // Clean cookie if it has prefix
+    if ($cfCookie && strpos($cfCookie, 'cf_clearance ') === 0) {
+        $cfCookie = str_replace('cf_clearance ', '', $cfCookie);
+    }
+    
+    $uaFile = $dir . "/userAgent";
+    $userAgent = file_exists($uaFile) ? trim(file_get_contents($uaFile)) : null;
+
+    return [
+        'cf_cookie' => $cfCookie,
+        'user_agent' => $userAgent
+    ];
+}
+
+// ============================================
+// SAVE CF COOKIE & USER AGENT
+// ============================================
+function saveCfCookieAndUserAgent($host, $cookie, $userAgent, $proxy = null) {
+    $dir = __DIR__ . "/../configs/{$host}-config";
+    if (!is_dir($dir)) mkdir($dir, 0777, true);
+
+    // Determine filename based on proxy
+    $cookieFile = $dir . "/cf_cookie.txt";
+    
+    if (!empty($proxy)) {
+        $proxyParts = parseProxyString($proxy);
+        
+        if ($proxyParts && !empty($proxyParts['host'])) {
+            $proxyHost = $proxyParts['host'];
+            $proxyPort = $proxyParts['port'];
+            $cookieFile = $dir . "/{$proxyHost}-{$proxyPort}-cf_cookies.txt";
+        }
+    }
+
+    // Save cookie (just the value, no prefix)
+    file_put_contents($cookieFile, trim($cookie));
+    
+    // Save User-Agent
+    $uaFile = $dir . "/userAgent";
+    if (!empty($userAgent)) {
+        file_put_contents($uaFile, trim($userAgent));
+    }
+
+    return true;
+}
+
+// ============================================
+// GET COOKIES FUNCTION
+// ============================================
+function get_cookies($host, $proxy = null, $email = null) {
+    $dir = __DIR__ . "/../configs/{$host}-config";
+    if (!is_dir($dir)) return '';
+    
+    $cookieFile = $dir . "/cookie.txt";
+    
+    if (!empty($proxy)) {
+        $proxyParts = parseProxyString($proxy);
+        
+        if ($proxyParts && !empty($proxyParts['host'])) {
+            $proxyHost = $proxyParts['host'];
+            $proxyPort = $proxyParts['port'];
+            $proxyCookieFile = $dir . "/{$proxyHost}-{$proxyPort}-cookie.txt";
+            
+            if (file_exists($proxyCookieFile)) {
+                $cookieFile = $proxyCookieFile;
+            }
+        }
+    }
+    
+    if (file_exists($cookieFile)) {
+        $content = file_get_contents($cookieFile);
+        // Parse Netscape format cookies
+        $cookies = [];
+        $lines = explode("\n", $content);
+        foreach ($lines as $line) {
+            $line = trim($line);
+            if (empty($line) || $line[0] == '#') continue;
+            $parts = preg_split('/\s+/', $line);
+            if (count($parts) >= 7) {
+                $cookies[] = $parts[5] . '=' . $parts[6];
+            }
+        }
+        return implode('; ', $cookies);
+    }
+    
+    return '';
+}
+
+// ============================================
+// GET REQUEST HEADERS
+// ============================================
+function getRequestHeaders($host, $proxy = null, $email = null) {
+    $cookies = getCfCookieAndUserAgent($host, $proxy);
+    $userAgent = !empty($cookies['user_agent']) ? $cookies['user_agent'] : saveData($host, 'UserAgent');
+    $cookieString = '';
+    
+    if (!empty($cookies['cf_cookie'])) {
+        // Clean up cookie format
+        $cookieString = trim($cookies['cf_cookie']);
+        // Remove trailing semicolon if exists
+        $cookieString = rtrim($cookieString, ';');
+    }
+    
+    if (empty($cookieString)) {
+        $cookieString = get_cookies($host, $proxy, $email);
+    }
+    
+    $headers = [
+        "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+        "Accept-Language: en-US,en;q=0.9",
+        "User-Agent: " . $userAgent,
+        "Cache-Control: no-cache",
+        "Pragma: no-cache",
+        "Upgrade-Insecure-Requests: 1",
+        "Sec-Fetch-Dest: document",
+        "Sec-Fetch-Mode: navigate",
+        "Sec-Fetch-Site: none",
+        "Sec-Fetch-User: ?1"
+    ];
+    
+    if (!empty($cookieString)) {
+        $headers[] = "Cookie: " . $cookieString;
+    }
+    
+    return $headers;
+}
+
+function Run($url, $head = 0, $post = 0, $data = "data", $proxy = 0, $returnType = 0, $name = "") {
+    $host = parse_url($url, PHP_URL_HOST);
+    $folder = __DIR__ . "/../configs/{$host}-config";
     if (!is_dir($folder)) mkdir($folder, 0777, true);
 
-
-    // Remove data URL scheme if present
-    if (strpos($base64String, 'base64,') !== false) {
-        $base64String = explode('base64,', $base64String)[1];
-    }
-
-    $imageData = base64_decode($base64String);
-    if ($imageData === false) {
-        echo "Failed to decode base64 image.";
-        return false;
-    }
-
-    $filePath = $folder . '/' . $filename;
-    if (file_put_contents($filePath, $imageData)) {
-        return $filePath;
-    } else {
-        echo "Failed to save image.";
-        return false;
-    }
-}
-
-function cf_bypass($host){
-    
-        $host0 = parse_url($host, PHP_URL_HOST);
-    $configDir = __DIR__ . "/../configs/{$host0}-config";
-    if (!is_dir($configDir)) {
-        mkdir($configDir, 0777, true);
-    }
-
-    while (true) {
-        $bots = exec("python cf.py $host");
-        $bot = json_decode($bots, true);
-
-        if (empty($bot['cf_clearance'])) {
-            continue;
+    // Cookie file
+    $proxyPart = '';
+    if (!empty($proxy)) {
+        $proxyForHost = trim($proxy);
+        if (!preg_match('#^https?://#i', $proxyForHost)) {
+            $proxyForHost = "http://" . $proxyForHost;
         }
-        $host = parse_url($url, PHP_URL_HOST);
-        // Save user-agent
-        file_put_contents("$configDir/user_Agent", $bot['user-agent']);
+        $parts = parse_url($proxyForHost);
+        $hostPart = $parts['host'] ?? '';
 
-        // Load old cookie
-        $cookieFile = saveData($host, 'cookie');
-
-        $newCfClearance = "cf_clearance=" . $bot['cf_clearance'] . ";";
-        $cf = explode('cf_clearance=', $cookieFile)[1] ?? null;
-
-        if ($cf) {
-            $cf0 = explode(';', $cf)[1];
-            $back = explode('cf_clearance=', $cookieFile)[0];
-            $makenewcookie = $back . $newCfClearance . $cf0;
+        if (!empty($hostPart)) {
+            $proxyPart = $hostPart;
         } else {
-            $makenewcookie = $newCfClearance . $cookieFile;
+            $proxyForHost = preg_replace('/^.*@/', '', trim($proxy));
+            $proxyPart = preg_replace('/[^a-zA-Z0-9._-]/', '_', $proxyForHost);
+            $proxyPart = preg_replace('/_+/', '_', $proxyPart);
+            $proxyPart = trim($proxyPart, '_');
         }
 
-        // Save updated cookie
-        file_put_contents("$configDir/cookie", $makenewcookie);
-        return;
-    }
-}
-
-function autoFilterCaptcha($base64Image, $outputImageName) {
-$folder = DIR . "/../AB-images";
-
-$inputImagePath = $folder . '/temp_input.png';  
-$outputImagePath = $folder . '/' . $outputImageName;  
-
-$base64Data = explode(',', $base64Image);  
-$imageData = base64_decode(end($base64Data));  
-file_put_contents($inputImagePath, $imageData);  
-
-$img = imagecreatefrompng($inputImagePath);  
-if (!$img) die("Failed to open image.\n");  
-
-$width = imagesx($img);  
-$height = imagesy($img);  
-$clean = imagecreatetruecolor($width, $height);  
-
-$white = imagecolorallocate($clean, 255, 255, 255);  
-$black = imagecolorallocate($clean, 0, 0, 0);  
-imagefill($clean, 0, 0, $white);  
-
-$totalGray = 0;  
-$pixelCount = 0;  
-
-// First pass to calculate average grayscale  
-for ($x = 0; $x < $width; $x++) {  
-    for ($y = 0; $y < $height; $y++) {  
-        $rgba = imagecolorat($img, $x, $y);  
-        $alpha = ($rgba & 0x7F000000) >> 24;  
-        $r = ($rgba >> 16) & 0xFF;  
-        $g = ($rgba >> 8) & 0xFF;  
-        $b = $rgba & 0xFF;  
-
-        if ($alpha >= 100) $r = $g = $b = 255;  
-
-        $gray = ($r + $g + $b) / 3;  
-        $totalGray += $gray;  
-        $pixelCount++;  
-    }  
-}  
-
-$avgGray = $totalGray / $pixelCount;  
-$threshold = $avgGray * 0.8; // aggressive cutoff  
-
-// Second pass to binarize  
-for ($x = 1; $x < $width - 1; $x++) {  
-    for ($y = 1; $y < $height - 1; $y++) {  
-        $rgba = imagecolorat($img, $x, $y);  
-        $alpha = ($rgba & 0x7F000000) >> 24;  
-        $r = ($rgba >> 16) & 0xFF;  
-        $g = ($rgba >> 8) & 0xFF;  
-        $b = $rgba & 0xFF;  
-
-        if ($alpha >= 100) $r = $g = $b = 255;  
-
-        $gray = ($r + $g + $b) / 3;  
-
-        if ($gray < $threshold) {  
-            // Check surrounding pixels to keep only clustered dark points  
-            $neighbors = 0;  
-            for ($i = -1; $i <= 1; $i++) {  
-                for ($j = -1; $j <= 1; $j++) {  
-                    if ($i === 0 && $j === 0) continue;  
-                    $nx = $x + $i;  
-                    $ny = $y + $j;  
-                    $nrgba = imagecolorat($img, $nx, $ny);  
-                    $na = ($nrgba & 0x7F000000) >> 24;  
-                    $nr = ($nrgba >> 16) & 0xFF;  
-                    $ng = ($nrgba >> 8) & 0xFF;  
-                    $nb = $nrgba & 0xFF;  
-
-                    if ($na >= 100) $nr = $ng = $nb = 255;  
-
-                    $ngray = ($nr + $ng + $nb) / 3;  
-                    if ($ngray < $threshold) $neighbors++;  
-                }  
-            }  
-
-            if ($neighbors >= 3) {  
-                imagesetpixel($clean, $x, $y, $black);  
-            }  
-        }  
-    }  
-}  
-
-// Optional: Strengthen text color to darker gray (OCR friendly)  
-for ($x = 0; $x < $width; $x++) {  
-    for ($y = 0; $y < $height; $y++) {  
-        $color = imagecolorat($clean, $x, $y);  
-        $r = ($color >> 16) & 0xFF;  
-        $g = ($color >> 8) & 0xFF;  
-        $b = $color & 0xFF;  
-
-        if ($r === 0 && $g === 0 && $b === 0) {  
-            $r = $g = $b = 50;  
-            imagesetpixel($clean, $x, $y, imagecolorallocate($clean, $r, $g, $b));  
-        }  
-    }  
-}  
-
-imagepng($clean, $outputImagePath);  
-imagedestroy($img);  
-imagedestroy($clean);  
-unlink($inputImagePath);
-
-}
-function extractText($imageName) {
-    $folder = __DIR__ . "/../AB-images";
-    $imagePath = $folder . '/' . $imageName;
-    $outputFile = $folder . '/result';
-
-    $command = "tesseract \"$imagePath\" \"$outputFile\" 2>&1";
-    exec($command, $output, $returnCode);
-
-    if ($returnCode !== 0) {
-        echo "Tesseract OCR failed:\n";
-        echo implode("\n", $output);
-        return '';
+        $cookieFile = !empty($name)
+            ? $folder . "/{$name}-{$proxyPart}-cookie.txt"
+            : $folder . "/{$proxyPart}-cookie.txt";
+    } else {
+        $cookieFile = $folder . "/" . (!empty($name) ? "{$name}-cookie.txt" : "cookie.txt");
     }
 
-    $text = @file_get_contents($outputFile . '.txt');
-    if ($text === false) {
-        echo "Failed to read OCR output.\n";
-        return '';
+    // ===== CHECK FOR EXISTING CF COOKIE FILE =====
+    $cfCookieFile = $folder . "/cf_cookie.txt";
+    if (!empty($proxy)) {
+        $proxyParts = parseProxyString($proxy);
+        if ($proxyParts && !empty($proxyParts['host'])) {
+            $proxyHost = $proxyParts['host'];
+            $proxyPort = $proxyParts['port'];
+            $proxyCfCookieFile = $folder . "/{$proxyHost}-{$proxyPort}-cf_cookies.txt";
+            if (file_exists($proxyCfCookieFile)) {
+                $cfCookieFile = $proxyCfCookieFile;
+            }
+        }
     }
 
-    return trim($text);
+    $maxRetries = 5;
+    $retryDelay = 1;
+    $attempt = 0;
+    $response = false;
+    $info = [];
+    $curlErr = '';
+    $rawHeaders = '';
+
+    // Store original headers for reference
+    $originalHeaders = ($head && is_array($head)) ? $head : [];
+    $currentHeaders = $originalHeaders;
+
+    // ===== LOAD EXISTING COOKIE AND USER AGENT IF AVAILABLE =====
+    $existingCookie = null;
+    $existingUserAgent = null;
+    
+    if (file_exists($cfCookieFile)) {
+        $existingCookie = trim(file_get_contents($cfCookieFile));
+        // Clean cookie if it has prefix
+        if ($existingCookie && strpos($existingCookie, 'cf_clearance ') === 0) {
+            $existingCookie = str_replace('cf_clearance ', '', $existingCookie);
+        }
+      
+        
+        // Load user agent
+        $uaFile = $folder . "/userAgent";
+        if (file_exists($uaFile)) {
+            $existingUserAgent = trim(file_get_contents($uaFile));
+        }
+        
+        // Add existing cookie to headers
+        if (!empty($existingCookie)) {
+            $cookieHeader = "cf_clearance=" . $existingCookie;
+            
+            // Check if cookie is already in headers
+            $cookieFound = false;
+            $userAgentFound = false;
+            
+            foreach ($currentHeaders as &$header) {
+                if (stripos($header, 'Cookie:') === 0) {
+                    $header = 'Cookie: ' . $cookieHeader;
+                    $cookieFound = true;
+                }
+                if ($existingUserAgent && stripos($header, 'user-agent:') === 0) {
+                    $header = 'user-agent: ' . $existingUserAgent;
+                    $userAgentFound = true;
+                }
+            }
+            
+            if (!$cookieFound) {
+                $currentHeaders[] = 'Cookie: ' . $cookieHeader;
+            }
+            if ($existingUserAgent && !$userAgentFound) {
+                $currentHeaders[] = 'user-agent: ' . $existingUserAgent;
+            }
+        }
+    } else {
+    }
+
+    do {
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_COOKIEJAR, $cookieFile);
+        curl_setopt($ch, CURLOPT_COOKIEFILE, $cookieFile);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, false);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 30);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 60);
+        curl_setopt($ch, CURLOPT_ENCODING, '');
+
+        // ===== PROXY =====
+        if (!empty($proxy)) {
+            $proxy = trim($proxy);
+            if (!preg_match('#^https?://#i', $proxy)) {
+                $proxyWithScheme = "http://{$proxy}";
+            } else {
+                $proxyWithScheme = $proxy;
+            }
+
+            $parts = parse_url($proxyWithScheme);
+
+            if (!empty($parts['host']) && !empty($parts['port'])) {
+                curl_setopt($ch, CURLOPT_PROXY, $parts['host'] . ":" . $parts['port']);
+                if (!empty($parts['user']) && !empty($parts['pass'])) {
+                    curl_setopt($ch, CURLOPT_PROXYUSERPWD, $parts['user'] . ":" . $parts['pass']);
+                }
+                curl_setopt($ch, CURLOPT_PROXYTYPE, CURLPROXY_HTTP);
+                curl_setopt($ch, CURLOPT_SUPPRESS_CONNECT_HEADERS, true);
+                curl_setopt($ch, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_0);
+            }
+        } else {
+            curl_setopt($ch, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_2TLS);
+        }
+
+        // POST
+        if ($post) {
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $post);
+        }
+
+        // Headers - use current headers
+        $headers = $currentHeaders;
+        $headers[] = 'Expect:';
+        $headers[] = 'Connection: close';
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+
+        // ===== CRITICAL: Capture headers with callback =====
+        $rawHeaders = '';
+        curl_setopt($ch, CURLOPT_HEADER, false);
+        curl_setopt($ch, CURLOPT_HEADERFUNCTION, function($ch, $headerLine) use (&$rawHeaders) {
+            $rawHeaders .= $headerLine;
+            return strlen($headerLine);
+        });
+
+        $response = curl_exec($ch);
+        $info = curl_getinfo($ch);
+        $curlErr = curl_error($ch);
+        curl_close($ch);
+
+        if ($response !== false && $info['http_code'] != 0) {
+
+            // ===== CHECK FOR CLOUDFLARE (403 with "Just a moment...") =====
+            $isCloudflare = false;
+            if ($info['http_code'] == 403 && 
+                (preg_match('/Just a moment.../', $response) ||
+                 preg_match('/cf-ray/i', $response) ||
+                 preg_match('/cloudflare/i', $response) ||
+                 stripos($response, 'challenge') !== false)) {
+                $isCloudflare = true;
+            }
+
+            if ($isCloudflare) {
+                 
+                // ===== CHECK IF WE ALREADY HAVE A COOKIE AND IT'S FAILING =====
+                if (!empty($existingCookie)) {
+                }
+                
+                // ===== CALL BYPASS FUNCTION =====
+                if (!function_exists('bypassCloudFlare')) {
+                    break;
+                }
+                
+                $cfResult = bypassCloudFlare($url, $proxy);
+                
+                if ($cfResult && isset($cfResult['success']) && $cfResult['success'] === true) {
+                    
+                    $cloudflareCookie = $cfResult['cloudflare_cookie'] ?? null;
+                    $userAgent = $cfResult['user_agent'] ?? '';
+                    
+                    if (!empty($cloudflareCookie)) {
+                        
+                        // Save the cookie and UA
+                        saveCfCookieAndUserAgent($host, $cloudflareCookie, $userAgent, $proxy);
+                        
+                        // Update existing cookie and user agent variables
+                        $existingCookie = $cloudflareCookie;
+                        $existingUserAgent = $userAgent;
+                        
+                        // Update headers with new cookie
+                        $cookieHeader = "cf_clearance=" . $cloudflareCookie;
+                        $currentHeaders = $originalHeaders;
+                        
+                        // Add UA (must match the cookie)
+                        if (!empty($userAgent)) {
+                            $userAgentFound = false;
+                            foreach ($currentHeaders as &$header) {
+                                if (stripos($header, 'user-agent:') === 0) {
+                                    $header = 'user-agent: ' . $userAgent;
+                                    $userAgentFound = true;
+                                    break;
+                                }
+                            }
+                            if (!$userAgentFound) {
+                                $currentHeaders[] = 'user-agent: ' . $userAgent;
+                            }
+                        }
+                        
+                        // Add Cookie
+                        $cookieFound = false;
+                        foreach ($currentHeaders as &$header) {
+                            if (stripos($header, 'Cookie:') === 0) {
+                                $header = 'Cookie: ' . $cookieHeader;
+                                $cookieFound = true;
+                                break;
+                            }
+                        }
+                        if (!$cookieFound) {
+                            $currentHeaders[] = 'Cookie: ' . $cookieHeader;
+                        }
+                        
+                        // Add all standard headers
+                        $additionalHeaders = [
+                            'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+                            'Accept-Language: en-US,en;q=0.9',
+                            'Cache-Control: no-cache',
+                            'Pragma: no-cache',
+                            'Upgrade-Insecure-Requests: 1',
+                            'Sec-Fetch-Dest: document',
+                            'Sec-Fetch-Mode: navigate',
+                            'Sec-Fetch-Site: none',
+                            'Sec-Fetch-User: ?1'
+                        ];
+                        
+                        foreach ($additionalHeaders as $addHeader) {
+                            $headerFound = false;
+                            $headerKey = explode(':', $addHeader)[0] . ':';
+                            foreach ($currentHeaders as &$header) {
+                                if (stripos($header, $headerKey) === 0) {
+                                    $header = $addHeader;
+                                    $headerFound = true;
+                                    break;
+                                }
+                            }
+                            if (!$headerFound) {
+                                $currentHeaders[] = $addHeader;
+                            }
+                        }
+                        
+                        $attempt++;
+                   
+                        continue; // Retry with new cookie
+                    }
+                } else {
+                    $error = $cfResult['error'] ?? 'Unknown error';
+            
+                    break;
+                }
+            }
+
+            // Success - no Cloudflare detected
+            break;
+        }
+
+        $attempt++;
+        if ($attempt < $maxRetries) {
+            sleep($retryDelay);
+        }
+
+    } while ($attempt < $maxRetries);
+
+    if ($response === false || $info['http_code'] == 0) {
+        return [
+            "body" => "Request failed after {$maxRetries} attempts. Error: " . ($curlErr ?: 'No response'),
+            "info" => $info
+        ];
+    }
+
+    // Parse headers from the callback
+    $parsedHeader = parseHeaders($rawHeaders);
+
+    return [
+        "header" => $parsedHeader,
+        "body"   => $response,
+        "info"   => $info
+    ];
+}
+// ============================================
+// PARSE HEADERS HELPER
+// ============================================
+function parseHeaders($rawHeaders) {
+    $headers = [];
+    $lines = explode("\r\n", $rawHeaders);
+    
+    if (!empty($lines[0])) {
+        $headers['status_line'] = $lines[0];
+        if (preg_match('#HTTP/\d+\.\d+\s+(\d+)#', $lines[0], $matches)) {
+            $headers['http_code'] = (int)$matches[1];
+        }
+    }
+    
+    for ($i = 1; $i < count($lines); $i++) {
+        $line = $lines[$i];
+        if (empty($line)) break;
+        
+        $parts = explode(': ', $line, 2);
+        if (count($parts) == 2) {
+            $key = strtolower($parts[0]);
+            $value = $parts[1];
+            
+            if (isset($headers[$key])) {
+                if (is_array($headers[$key])) {
+                    $headers[$key][] = $value;
+                } else {
+                    $headers[$key] = [$headers[$key], $value];
+                }
+            } else {
+                $headers[$key] = $value;
+            }
+        }
+    }
+    
+    return $headers;
 }
 
-
-function getimg(){
-$folder = __DIR__ . "/../AB-images";
-$images = glob($folder . '/*.jpg'); // Get all PNG images in the folder
-return $images;
-// Loop through and display the image file names
-foreach ($images as $image) {
-    echo "Found image: " . basename($image) . "\n";
+// ============================================
+// CHECK CLOUDFLARE - FIXED
+// ============================================
+function check_cloudflare($url, $host, $email, $proxy = null) {
+    $proxyHeaders = getProxyForHeaders($proxy);
+    $response = Run("$url/", getRequestHeaders($host, $proxyHeaders), null, "data", $proxy, 0, $email);
+    $html = $response['body'];
+    
+    if (in_array($response['info']['http_code'], [301, 404])) {
+        $response = Run($url, getRequestHeaders($host, $proxyHeaders), null, "data", $proxy, 0, $email);
+        $html = $response['body'];
+    }
+    
+    if (preg_match('/Just a moment.../', $html)) {
+        $cfResult = bypassCloudFlare($url, $proxy);
+        if ($cfResult && $cfResult['success']) {
+            // Save the bypass result
+            if (!empty($cfResult['cloudflare_cookie'])) {
+                saveCfCookieAndUserAgent($host, $cfResult['cloudflare_cookie'], $cfResult['user_agent'] ?? '', $proxy);
+            }
+            
+            // Retry with new cookies
+            $response = Run($url, getRequestHeaders($host, $proxyHeaders), null, "data", $proxy, 0, $email);
+        }
+    }
+    
+    return $response;
 }
+
+// ============================================
+// UI/ANIMATION FUNCTIONS
+// ============================================
+function linee() {
+    return str_repeat("═", 105) . NEWLINE;
 }
 
-function banner($sc){
-    global $l;
-fast($l);
-echo YELLOW . "                    〔 ". GREEN . $sc . YELLOW . " 〕           \n";
-fast($l);
-
-}
-
-
-//system('clear');
-$l = str_repeat("━", 60) . GLOWING_WHITE . NEWLINE;
-fast($l);
-function fast($arr){
+function fast($arr) {
     $char = str_split($arr);
-    foreach($char as $animated){
+    foreach($char as $animated) {
         echo $animated;
         usleep(5000);
     }
 }
 
-
-
-
-function first_part($message, $width, $wait) {
-    // Pad the message to center it
-    $animated_message = str_pad($message, $width, ' ', STR_PAD_BOTH);
-    $msg_effect = "";
-    
-    // Create the animated effect
-    for ($i = 0; $i < strlen($animated_message) - 1; $i++) {
-        $msg_effect .= $animated_message[$i];
-        // Output the current state of the animation
-        echo "\r" . $msg_effect;
-        flush(); // Force output to be displayed immediately
-        usleep(30000); // 0.03 seconds
-    }
-
-    if ($wait) {
-        sleep(1); // Wait for 1 second if the message is short
-    }
-}
-
 function animation($message) {
-    // Define the number of characters to display at once
-    $width = 60;
-    // Determine if the message fits within the width
+    // Compact: one updating line OR one box row (no spam stacks)
+    $plain = preg_replace('/\033\[[0-9;]*m/', '', (string)$message);
+    if (!empty($GLOBALS['theme_box_open']) && function_exists('themeRow')) {
+        static $lastAnim = '';
+        if ($plain === $lastAnim) return;
+        $lastAnim = $plain;
+        themeRow("Captcha", YELLOW . $plain . RESET);
+        return;
+    }
+    // single-line status (overwrite)
+    $color = defined("YELLOW") ? YELLOW : "";
+    $reset = defined("RESET") ? RESET : "";
+    echo "\r" . $color . "🧩 " . $plain . $reset . str_repeat(" ", 8);
+    if (function_exists("flush")) @flush();
+    return;
+    $width = 60; // unreachable legacy
     $msg_effect = substr($message, 0, $width);
     $wait = strlen($message) <= $width;
 
-    // Print the first part of the message
     first_part($msg_effect, $width, $wait);
 
-    // If the message is longer, scroll it horizontally
     if (strlen($message) > $width) {
         for ($i = $width; $i < strlen($message); $i++) {
-            // Shift the message by removing the first character and adding the next
             $msg_effect = substr($msg_effect, 1) . $message[$i];
             echo "\r" . $msg_effect;
-            flush(); // Ensure the updated message is printed immediately
-            usleep(100000); // 0.1 seconds delay between scrolls
+            flush();
+            usleep(100000);
         }
     }
     sleep(1);
     echo "\r" . str_repeat(' ', $width) . "\r";
     flush();
- 
-
 }
 
-
-
-
-
-
-
-function action($action) {
-    // Define date and time in the required format
-    $now = date("d/M/Y H:i:s");
-
-    // Calculate the total length for spacing
-    $total_length = strlen($action) + strlen($now) + 5;
-    $space_count = 50 - $total_length;
-
-    // Format the message
-    $msg = strtoupper($action) . " " . $now . str_repeat(" ", max(0, $space_count));
-
-    // Define color codes (these may vary based on the environment)
-    $bg_red = "\033[41m";
-    $white = "\033[97m";
-    $res = "\033[0m";
-    $red = "\033[31m";
-    $end = "\033[0m";
-
-    // Print the message with colors
-    echo "{$bg_red} {$white}{$msg}  {$res}{$red}⫸{$res}{$end}\n";
-}
-function Run($url, $head = 0, $post = 0, $data = "data") {
-    $host = parse_url($url, PHP_URL_HOST);
-    $folder = "configs/{$host}-config";
-    if (!is_dir($folder)) mkdir($folder, 0777, true);
-    $cookieFile = "$folder/cookie.txt";
-
-    $ch = curl_init();
-    curl_setopt($ch, CURLOPT_URL, $url);
-    curl_setopt($ch, CURLOPT_COOKIEJAR, $cookieFile);
-    curl_setopt($ch, CURLOPT_COOKIEFILE, $cookieFile);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, false);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 30);
-    curl_setopt($ch, CURLOPT_SSLVERSION, CURL_SSLVERSION_TLSv1_3);
-    curl_setopt($ch, CURLOPT_SSL_CIPHER_LIST, 'TLS_AES_128_GCM_SHA256:ECDHE-RSA-AES128-GCM-SHA256');
-
-
-    if ($post) {
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, $post);
+function first_part($message, $width, $wait) {
+    $animated_message = str_pad($message, $width, ' ', STR_PAD_BOTH);
+    $msg_effect = "";
+    
+    for ($i = 0; $i < strlen($animated_message) - 1; $i++) {
+        $msg_effect .= $animated_message[$i];
+        echo "\r" . $msg_effect;
+        flush();
+        usleep(30000);
     }
 
-    if ($head && is_array($head)) {
-        curl_setopt($ch, CURLOPT_HTTPHEADER, $head);
-    }
-
-    curl_setopt($ch, CURLOPT_HEADER, true);
-    $r = curl_exec($ch);
-    if ($data == "info") return curl_getinfo($ch);
-
-    if (!$r) return "Curl error: " . curl_error($ch);
-
-    $headerSize = curl_getinfo($ch, CURLINFO_HEADER_SIZE);
-    $body = substr($r, $headerSize);
-    curl_close($ch);
-    return $body;
-}
-
-
-function Run1($url, $head = 0, $post = 0) {
-    $host = parse_url($url, PHP_URL_HOST);
-    $folder = "configs/{$host}-config";
-    if (!is_dir($folder)) mkdir($folder, 0777, true);
-    $cookieFile = "$folder/cookie.txt";
-
-    $ch = curl_init();
-    curl_setopt($ch, CURLOPT_URL, $url);
-    curl_setopt($ch, CURLOPT_COOKIEJAR, $cookieFile);
-    curl_setopt($ch, CURLOPT_COOKIEFILE, $cookieFile);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, false);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 30);
-    curl_setopt($ch, CURLOPT_SSLVERSION, CURL_SSLVERSION_TLSv1_3);
-    curl_setopt($ch, CURLOPT_SSL_CIPHER_LIST, 'TLS_AES_128_GCM_SHA256:ECDHE-RSA-AES128-GCM-SHA256');
-
-
-    if ($post) {
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, $post);
-    }
-
-    if ($head && is_array($head)) {
-        curl_setopt($ch, CURLOPT_HTTPHEADER, $head);
-    }
-
-    curl_setopt($ch, CURLOPT_HEADER, true);
-    $r = curl_exec($ch);
-
-    if (!$r) return "Curl error: " . curl_error($ch);
-
-    $info = curl_getinfo($ch);
-    $headerSize = curl_getinfo($ch, CURLINFO_HEADER_SIZE);
-    $header = substr($r, 0, $headerSize);
-    $body = substr($r, $headerSize);
-    curl_close($ch);
-    return ['header' => $header, 'body' => $body, 'info' => $info];
-}
-
-
-function clear() {
-    // Check if the PHP script is running on a Windows system
-    if (stripos(PHP_OS, 'WIN') === 0) {
-        // Clear the screen on Windows CMD
-        pclose(popen('cls', 'w'));
-    } else {
-        // Use 'clear' command to clear the screen on Termux or other Unix-based terminals
-        passthru('clear');
+    if ($wait) {
+        sleep(1);
     }
 }
-
-
 
 function countdown($duration, $message) {
     $colors = [GREEN, WHITE, YELLOW, BLUE, PURPLE, CYAN];
     $colorIndex = 0;
-    
-    $totalDuration = $duration; // Store total duration for percentage calculation
-    $startTime = microtime(true); // Start time for the countdown
-    $arrowLength = 1; // Initial arrow length
-    
-    // Start the countdown loop with sub-second updates
+    $totalDuration = $duration;
+    $startTime = microtime(true);
+    $arrowLength = 1;
+
     while (true) {
-        $elapsedTime = microtime(true) - $startTime; // Elapsed time in seconds
-        $remainingTime = $duration - $elapsedTime; // Remaining time
+        $elapsedTime = microtime(true) - $startTime;
+        $remainingTime = $duration - $elapsedTime;
 
         if ($remainingTime <= 0) {
-            $remainingTime = 0; // Prevent negative remaining time
-            break; // Exit when the timer reaches 0
+            $remainingTime = 0;
+            break;
         }
 
-        $hours = floor($remainingTime / 3600);
-        $minutes = floor(($remainingTime % 3600) / 60);
-        $seconds = $remainingTime % 60;
+        $remainingInt = (int) $remainingTime;
+        $hours   = floor($remainingInt / 3600);
+        $minutes = floor(($remainingInt % 3600) / 60);
+        $seconds = $remainingInt % 60;
 
-        // Calculate the percentage of the countdown (in milliseconds)
-        $percentage = (($totalDuration - $remainingTime) / $totalDuration) * 100;
-
-        // Generate the animated arrow sequence (only grows once per second)
-// Update arrow length with reset every 5 seconds
-if (floor($elapsedTime) >= $arrowLength) {
-    $arrowLength = (floor($elapsedTime) % 5) + 1; // Loop from 1 to 5
-}
-$arrow = str_repeat('=', $arrowLength - 1) . '>';
-
-
-        // Print the message, time, colored arrow, and the percentage on the opposite side
-printf("\r" . $message . ' ' . WHITE . "%02d:%02d:%02d " . $arrow . " " . str_repeat(" ", 20) . "%.2f%%", $hours, $minutes, $seconds, $percentage);
-
-        sleep(0.01); // Sleep for 10 milliseconds to create smooth percentage update
-        $colorIndex++; // Change color for next cycle
-    }
-echo "\r                                                   \r";
-
-    // Ensure 100% is printed when the countdown hits 00:00
-echo "\r                                          \r";
-}
-
-
-function api_link($url_id, $api) {
-    $url = 'https://tertuyul.my.id/apikey/';
-    $pos = json_encode([
-        "request" => "api_linkglitch",
-        "apikey"  => $api,
-        "url"     => $url_id
-    ]);
-    $r = json_decode(Run($url, 0, $pos), true);
-    if (isset($r["error"]) && $r["error"]) {
-        exit($r["error"] . "\n");
-    }
-    if (isset($r["fail"]) && $r["fail"]) {
-        return ["fail" => $r["fail"]];
-    }
-    if (isset($r["msg"]) && $r["msg"]) {
-        return ["error" => $r["msg"]];
-    }
-    $result = [];
-    if (isset($r["url"])) {
-        $result["url"] = $r["url"];
-    }
-    if (isset($r["balance"])) {
-        $result["balance"] = $r["balance"];
-    }
-    return $result;
-}
-
-function displayBanner($text) {
-    $width = 60;
-    $border = str_repeat("━", $width);
-    $padding = ($width - strlen($text)) / 2;
-    $centeredText = str_repeat(" ", max(0, floor($padding))) . $text;
-
-    echo "$border\n";
-    echo "$centeredText\n";
-    echo "$border\n";
-}
-
-
-
-
-function rewardbox($host, $details = []) {
-    $topLeft = "╭";
-    $topRight = "╮";
-    $bottomLeft = "╰";
-    $bottomRight = "╯";
-    $horizontal = "─";
-    $vertical = "│";
-
-    $lines = [];
-    $maxVisibleLength = 0;
-    foreach ($details as $label => $value) {
-        $line = YELLOW . "$label" . GREEN . " $value" . CYAN;
-        $lines[] = $line;
-        $visibleLength = strlen(stripColors($line));
-        if ($visibleLength > $maxVisibleLength) {
-            $maxVisibleLength = $visibleLength;
+        if (floor($elapsedTime) >= $arrowLength) {
+            $arrowLength = (floor($elapsedTime) % 5) + 1;
         }
+        $arrow = str_repeat('=', $arrowLength - 1) . '>';
+
+        printf("\r%s %02d:%02d:%02d %s", $message, $hours, $minutes, $seconds, $arrow);
+        usleep(200000);
     }
-
-    $visibleHostLen = strlen(stripColors($host));
-    $width = max($maxVisibleLength, $visibleHostLen) + 20;  // Increase width by 8 to make the box wider
-
-    $topText = WHITE . " $host " . CYAN;
-    $topPad = ($width - strlen(stripColors($topText)) - 2) / 2;
-    $topLine = $topLeft . str_repeat($horizontal, floor($topPad)) . $topText . str_repeat($horizontal, ceil($topPad)) . $topRight;
-
-    $middleLines = '';
-    foreach ($lines as $line) {
-        $visibleLen = strlen(stripColors($line));
-        $middleLines .= $vertical . ' ' . $line . str_repeat(' ', $width - 3 - $visibleLen) . $vertical . PHP_EOL;
-    }
-
-    $bottomLine = $bottomLeft . str_repeat($horizontal, $width - 2) . $bottomRight;
-
-    
-    // Box contents
-    echo CYAN . $topLine . PHP_EOL;
-    echo $middleLines . CYAN;
-    echo CYAN . $bottomLine . RESET . PHP_EOL;
-
+    echo "\r                                                   \r";
 }
 
-function stripColors($text) {
-    $result = '';
-    $len = strlen($text);
-    $i = 0;
-    while ($i < $len) {
-        if ($text[$i] === "\033" && isset($text[$i + 1]) && $text[$i + 1] === '[') {
-            $i += 2;
-            while ($i < $len && $text[$i] !== 'm') {
-                $i++;
+function x($a, $b, $r, $n = 1) {
+    return trim(explode($b, explode($a, $r)[$n])[0]);
+}
+
+function clear() {
+    if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
+        passthru('cls');
+    } else {
+        passthru('clear');
+    }
+}
+
+if (!function_exists('parseRewardMsg')) {
+/** HAR-accurate: claim POSTs return 303; reward is in Swal.fire on the next page. */
+function parseRewardMsg($body, $fallback = "Claim successful") {
+    $body = (string)$body;
+    if ($body === "") return $fallback;
+    // SweetAlert2 from HAR: Swal.fire({ icon: 'success', html: '...', text: '...' })
+    if (preg_match_all("/Swal\\.fire\\(\\{([\\s\\S]*?)\\}\\)/", $body, $blocks)) {
+        foreach ($blocks[1] as $block) {
+            if (stripos($block, "Ad Blocker") !== false) continue;
+            if (stripos($block, "Copied!") !== false) continue;
+            if (stripos($block, "icon:\\s*'error'") !== false || stripos($block, 'icon: "error"') !== false) {
+                if (preg_match("/html:\\s*['`]([^'`]+)['`]|text:\\s*['\"]([^'\"]+)['\"]/", $block, $mm)) {
+                    $t = trim(html_entity_decode(strip_tags($mm[1] !== "" ? $mm[1] : $mm[2])));
+                    if ($t !== "") return $t;
+                }
+                continue;
             }
-            $i++; // Skip the 'm'
-        } else {
-            $result .= $text[$i];
-            $i++;
+            if (preg_match("/html:\\s*['`]([^'`]{3,200})['`]/", $block, $mm)) {
+                $t = trim(html_entity_decode(strip_tags($mm[1])));
+                if ($t !== "" && stripos($t, "Redirecting") === false) return $t;
+            }
+            if (preg_match("/text:\\s*['\"]([^'\"]{3,200})['\"]/", $block, $mm)) {
+                $t = trim(html_entity_decode(strip_tags($mm[1])));
+                if ($t !== "" && stripos($t, "clipboard") === false) return $t;
+            }
         }
     }
-    return $result;
-}
-
-function unlinkData($host, $key = null) {
-    $folder = "configs/{$host}-config";
-    if (!is_dir($folder)) return false;
-
-    if ($key === null) {
-        // Delete entire config folder and contents
-        $files = glob("$folder/*");
-        foreach ($files as $file) {
-            if (is_file($file)) unlink($file);
-        }
-        return rmdir($folder);
-    } else {
-        // Delete only specific key file
-        $file = "$folder/$key";
-        if (file_exists($file)) {
-            return unlink($file);
+    // JSON
+    $j = @json_decode($body, true);
+    if (is_array($j)) {
+        foreach (array("message", "msg", "reward", "text", "status_message") as $k) {
+            if (!empty($j[$k]) && is_string($j[$k])) {
+                $t = trim(html_entity_decode(strip_tags($j[$k])));
+                if ($t !== "") return $t;
+            }
         }
     }
-    return false;
-}
-
-   
-
-function bannerBox($text) {
-    $boxWidth = 60; // Fixed wide box
-    $padding = floor(($boxWidth - strlen($text)) / 2);
-
-    $top = "╔" . str_repeat("═", $boxWidth) . "╗\n";
-    $middle = "║" . str_repeat(" ", $padding) . YELLOW . $text . WHITE . CYAN . str_repeat(" ", $boxWidth - strlen($text) - $padding) . "║\n";
-    $bottom = "╚" . str_repeat("═", $boxWidth) . "╝\n";
-
-    echo CYAN . $top . $middle . $bottom . WHITE;
-}
-
-
-function showBannerBox($host) {
-    $cyan = "\e[96m";
-    $white = "\e[97m";
-    $reset = "\e[0m";
-
-    $lines = [
-        "Script made by @glitch_394",
-        "Thanks To @scpwhite",
-        "Script $host",
-        "Note: premium script Not for sell."
-    ];
-
-    $width = 60;
-    $border = str_repeat("═", $width - 2);
-
-    echo $cyan . "╔" . $border . "╗" . $reset . PHP_EOL;
-
-    foreach ($lines as $line) {
-        $padding = ($width - 2 - strlen(strip_tags($line))) / 2;
-        $left = floor($padding);
-        $right = ceil($padding);
-        echo $cyan . "║" . $reset;
-        echo str_repeat(" ", $left) . $white . $line . $reset . str_repeat(" ", $right);
-        echo $cyan . "║" . $reset . PHP_EOL;
+    if (preg_match('/class="[^"]*alert-success[^"]*"[^>]*>([\\s\\S]{3,200}?)<\\/div>/i', $body, $m)) {
+        $t = trim(html_entity_decode(strip_tags($m[1])));
+        if ($t !== "") return $t;
     }
-
-    echo $cyan . "╚" . $border . "╝" . $reset . PHP_EOL;
+    if (preg_match('/You have (?:earned|received|claimed)[^<!.]{0,100}/i', $body, $m)) {
+        return trim(preg_replace('/\\s+/', ' ', strip_tags($m[0])));
+    }
+    return $fallback;
+}
 }
 
 
-function styledNumberBox($number) {
-    $cyan = "\e[96m";
-    $bold = "\e[1m";
-    $reset = "\e[0m";
-    echo $cyan . $bold . "[" . $number . "]" . $reset;
-}
-
-
-function Run2($url, $head = 0, $post = 0, $method = "POST") {
-    $ch = curl_init();
-    curl_setopt($ch, CURLOPT_URL, $url);
-  //  curl_setopt($ch, CURLOPT_COOKIEJAR, "cookie.txt");
-  //  curl_setopt($ch, CURLOPT_COOKIEFILE, "cookie.txt");
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, false);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 30);
-
-    // If method is PUT, set the request to PUT
-    if ($method == "PUT") {
-        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "PUT");
-        if ($post) {
-            curl_setopt($ch, CURLOPT_POSTFIELDS, $post);
+if (!function_exists('claimRewardFromRedirect')) {
+/** After claim POST (303), follow Location or same path and parse Swal reward. */
+function claimRewardFromRedirect($postResult, $fallbackUrl, $proxy, $email, $fallbackMsg = "Claim successful") {
+    $body = is_array($postResult) ? ($postResult["body"] ?? "") : "";
+    $msg = parseRewardMsg($body, "");
+    if ($msg !== "") return $msg;
+    $loc = $fallbackUrl;
+    if (is_array($postResult)) {
+        $hdr = $postResult["header"] ?? [];
+        if (is_array($hdr)) {
+            if (!empty($hdr["location"])) {
+                $loc = trim(is_array($hdr["location"]) ? $hdr["location"][0] : $hdr["location"]);
+            } elseif (!empty($hdr["Location"])) {
+                $loc = trim(is_array($hdr["Location"]) ? $hdr["Location"][0] : $hdr["Location"]);
+            }
         }
-    } 
-    // If post data is provided and method is not PUT, use POST
-    elseif ($post) {
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, $post);
+        $info = $postResult["info"] ?? [];
+        if (!empty($info["redirect_url"])) $loc = $info["redirect_url"];
     }
-
-    if ($head && is_array($head)) {
-        curl_setopt($ch, CURLOPT_HTTPHEADER, $head);
+    if (!$loc) $loc = $fallbackUrl;
+    if ($loc && strpos($loc, "http") !== 0 && defined("SITE")) {
+        $loc = rtrim(SITE, "/") . "/" . ltrim($loc, "/");
     }
-
-    curl_setopt($ch, CURLOPT_HEADER, true);
-    $r = curl_exec($ch);
-    
-    if (!$r) {
-        return "Curl error: " . curl_error($ch);
-    } else {
-        $header_size = curl_getinfo($ch, CURLINFO_HEADER_SIZE);
-        $body = substr($r, $header_size);
-        curl_close($ch);
-        return $body;
-    }
+    $h = function_exists("headers") ? headers() : array();
+    $r = Run($loc, $h, null, null, $proxy, 0, $email);
+    return parseRewardMsg($r["body"] ?? "", $fallbackMsg);
 }
-
-function bs64Image($bs64, $output) {
-    $image_data = base64_decode($bs64, true);
-    if ($image_data === false) {
-        return false; // Invalid base64 data
-    }
-    
-    file_put_contents($output, $image_data);
-    return convert_bg_to_white($output, $output);
-}
-
-function convert_bg_to_white($input, $output) {
-    $info = @getimagesize($input);
-    $mime = @$info['mime'];
-
-    switch ($mime) {
-        case 'image/jpeg':
-            $image = @imagecreatefromjpeg($input);
-            break;
-        case 'image/png':
-            $image = @imagecreatefrompng($input);
-            break;
-        case 'image/gif':
-            $image = @imagecreatefromgif($input);
-            break;
-        default:
-            return false;
-    }
-
-    if (!$image) {
-        return false; // Return false if image creation failed
-    }
-
-    $width = imagesx($image);
-    $height = imagesy($image);
-    $new_image = imagecreatetruecolor($width, $height);
-    $white = imagecolorallocate($new_image, 255, 255, 255);
-    imagefilledrectangle($new_image, 0, 0, $width, $height, $white);
-    imagecopy($new_image, $image, 0, 0, 0, 0, $width, $height);
-
-    // Preserve transparency for PNG and GIF
-    if ($mime === 'image/png' || $mime === 'image/gif') {
-        imagecolortransparent($new_image, $white); // Make white transparent for GIF
-        imagealphablending($new_image, true);
-        imagesavealpha($new_image, true);
-    }
-
-    imagejpeg($new_image, $output, 100);
-    imagedestroy($image);
-    imagedestroy($new_image);
-
-    return $output;
-}
-
+}
 
 

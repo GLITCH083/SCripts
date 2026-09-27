@@ -1,0 +1,17 @@
+{
+  "version": "2.0.0",
+  "name": "BuxadsBot",
+  "features": [
+    "crystal boxes",
+    "single account loop",
+    "smart multi accounts",
+    "captcha slot auto-retry",
+    "btcadspace surf+videos",
+    "99faucet one-coin",
+    "earnsolana/claimcoin/claimcrypto/freeltc.fun",
+    "hotfaucet links stop if <=1",
+    "HAR reward Swal parse",
+    "Windows-safe runner display_errors"
+  ],
+  "updated": "2026-09-28"
+}
